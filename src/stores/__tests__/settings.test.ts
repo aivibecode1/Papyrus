@@ -177,3 +177,29 @@ describe("settings store", () => {
     expect(await useSettingsStore.getState().hasKey(provider.id)).toBe(false);
   });
 });
+
+describe("bindProviderUrl", () => {
+  beforeEach(() => {
+    invokeMock.mockClear();
+    isTauriMock.mockReturnValue(false);
+  });
+
+  it("re-binds the key's host through set_provider_url on the Tauri path", async () => {
+    // Editing a provider's base URL without re-typing the key used to
+    // leave the key resolving to the OLD host while the UI showed the
+    // new one: every request went to the previous address and the new
+    // endpoint was never contacted.
+    isTauriMock.mockReturnValue(true);
+    await useSettingsStore.getState().bindProviderUrl("prov1", "https://gateway.corp/v1");
+
+    expect(invokeMock).toHaveBeenCalledWith("set_provider_url", {
+      providerId: "prov1",
+      baseUrl: "https://gateway.corp/v1",
+    });
+  });
+
+  it("is a no-op in the browser preview, which has no binding file", async () => {
+    await useSettingsStore.getState().bindProviderUrl("prov1", "https://gateway.corp/v1");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+});

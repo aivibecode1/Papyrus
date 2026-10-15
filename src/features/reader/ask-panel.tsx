@@ -30,9 +30,19 @@ export function AskPanel({
   const { t } = useTranslation();
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Scroll on stream end and on a new message; while a stream is running,
+  // follow it with an instant scroll. The store replaces the `chat` array
+  // on every flush, so a smooth animation here was retargeted ~20x/s and
+  // jittered the text the user is reading.
+  const lastChatLen = useRef(chat.length);
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [chat]);
+    const newMessage = chat.length !== lastChatLen.current;
+    lastChatLen.current = chat.length;
+    chatEndRef.current?.scrollIntoView({
+      behavior: chatBusy && !newMessage ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [chat, chatBusy]);
 
   return (
     <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">

@@ -35,6 +35,8 @@ pnpm exec node dev/capture-screenshots.mjs
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml   # Rust: parsing, streaming, error paths
 pnpm test                                          # Frontend unit tests (Vitest)
+pnpm test:dev                                      # Dev-server tests: mock AI server (CORS/SSE) and release integrity
+node dev/check-release-integrity.mjs              # Version consistency across the four version files
 pnpm run build                                     # TypeScript strict check + production build
 pnpm lint                                          # ESLint
 pnpm typecheck                                     # TypeScript strict (tsc --noEmit)

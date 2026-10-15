@@ -50,6 +50,8 @@ interface SettingsState {
   removeProvider: (id: string) => void;
   setActiveProvider: (id: string) => void;
   saveKey: (providerId: string, key: string) => Promise<void>;
+  /** Desktop only: re-binds the stored key's host after a URL edit. */
+  bindProviderUrl: (providerId: string, baseUrl: string) => Promise<void>;
   deleteKey: (providerId: string) => Promise<void>;
   hasKey: (providerId: string) => Promise<boolean>;
   testProvider: (p: ProviderConfig) => Promise<string>;
@@ -144,6 +146,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       });
     } else {
       setBrowserKey(providerId, key);
+    }
+  },
+
+  /** Re-binds an existing key to a (possibly new) base URL. Editing a
+   * provider's URL must reach the backend: save_api_key only writes a
+   * binding when a key is re-entered, so without this the key kept
+   * resolving to the previous host while the UI showed the new one. No-op
+   * in the browser preview, which has no binding file. */
+  bindProviderUrl: async (providerId, baseUrl) => {
+    if (isTauri()) {
+      await invoke("set_provider_url", { providerId, baseUrl });
     }
   },
 

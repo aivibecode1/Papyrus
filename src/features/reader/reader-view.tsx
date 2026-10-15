@@ -42,7 +42,7 @@ export function ReaderView() {
   const [highlightError, setHighlightError] = useState<string | null>(null);
   const upsertNote = useNotesStore((s) => s.upsert);
   const { split, isRow, rowRef, startSplitDrag, onSplitKeyDown } = useReaderSplit();
-  const { copied, copySelection } = useCopySelection();
+  const { copied, copyFailed, copySelection } = useCopySelection();
 
   const paper = reader.paper;
   const provider = providers.find((p) => p.id === activeProviderId) ?? providers[0];
@@ -181,6 +181,7 @@ export function ReaderView() {
                   <SelectionBar
                     selection={reader.selection}
                     copied={copied}
+                    copyFailed={copyFailed}
                     saving={savingHighlight}
                     onCopy={() => void copySelection()}
                     onSaveHighlight={handleSaveHighlight}
@@ -231,6 +232,7 @@ export function ReaderView() {
               <PanelSelectionStrip
                 selection={reader.selection}
                 copied={copied}
+                copyFailed={copyFailed}
                 saving={savingHighlight}
                 onCopy={copySelection}
                 onClear={() => reader.clearSelection()}

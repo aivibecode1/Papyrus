@@ -35,10 +35,10 @@ One Rust module per IPC concern, registered in `lib.rs`:
 | `citations/` | `fetch_citations` (`mod`: S2 batch + OpenAlex fallback; `cache`: session + disk cache; `tests`: fetch-path suite)                                                                                                         |
 | `ai/`        | explain/ask/stop, keychain (`save_api_key`, `get_key`, `has_api_key`, `delete_api_key`), provider test (`mod`: `ProviderConfig` + module wiring; `commands`, `keychain`, `prompts`, `registry`, `stream`; `tests`: suite) |
 | `pdf/`       | `fetch_pdf` (`mod`: command + cache naming; `guard`: SSRF/DNS-pinning download pipeline)                                                                                                                                  |
-| `history.rs` | `list_history`, `record_history`, `remove_history_entry`                                                                                                                                                                  |
+| `history.rs` | `list_history`, `record_history`, `remove_history_entry`, `import_history`, `clear_history`                                                                                                                               |
 | `cache.rs`   | `clear_app_cache`                                                                                                                                                                                                         |
-| `export.rs`  | `export_data`, `import_data` (favorites + chats; never keys)                                                                                                                                                              |
-| `notes.rs`   | `list_notes`, `upsert_note`, `delete_note` (app-data JSON, atomic write)                                                                                                                                                  |
+| `export.rs`  | `export_data`, `import_data` (favorites + chats + notes + reading history; never keys)                                                                                                                                    |
+| `notes.rs`   | `list_notes`, `upsert_note`, `delete_note`, `import_notes` (app-data JSON, atomic write)                                                                                                                                  |
 
 Rules:
 
@@ -55,7 +55,7 @@ Rules:
   webview never stores or logs keys.
 - The webview never gets a generic filesystem API. Persistence is always
   domain-scoped Tauri commands (notes.json via `notes.rs`, exports via
-  `export.rs`, PDFs via `pdf.rs` cache); there is no free `read_json_file`
+  `export.rs`, PDFs via the `pdf/` cache); there is no free `read_json_file`
   / `write_json_file` IPC and there never will be.
 - Remote providers must be HTTPS (loopback HTTP allowed for local models).
 - The markdown pipeline escapes raw HTML; mermaid runs with

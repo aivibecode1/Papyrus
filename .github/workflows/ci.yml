@@ -19,6 +19,10 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run lint
       - run: pnpm test
+      # node:test suite over the dev mock AI server (CORS + SSE contract)
+      # and the release-integrity script; CI previously ran only the
+      # vitest suite, so these could rot silently.
+      - run: pnpm test:dev
       - run: pnpm exec prettier --check .
       - run: node dev/check-release-integrity.mjs
       # Plan 077: dependency audit gate (fails only on high/critical).

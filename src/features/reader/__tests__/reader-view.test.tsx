@@ -33,6 +33,15 @@ vi.mock("@/components/markdown/markdown", () => ({
   Markdown: ({ children }: { children: string }) => <div data-testid="markdown">{children}</div>,
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+// Control the clipboard result so the copy button's success/failure
+// states are exercisable: jsdom has no clipboard API, so the real
+// helper always resolves false here.
+const { copyTextToClipboardMock } = vi.hoisted(() => ({
+  copyTextToClipboardMock: vi.fn(async () => true),
+}));
+vi.mock("@/lib/clipboard", () => ({
+  copyTextToClipboard: copyTextToClipboardMock,
+}));
 // The reader store imports pdf-text, which imports pdfjs-dist at module
 // level; jsdom lacks DOMMatrix. The viewer itself is mocked above, so a
 // stub module is enough to satisfy the import chain.
@@ -217,6 +226,7 @@ describe("ReaderView", () => {
   });
 
   it("shows the selection chip with copy and clear actions", async () => {
+    copyTextToClipboardMock.mockResolvedValue(true);
     useReaderStore.setState({ selection: "The encoder maps tokens to vectors." });
     render(<ReaderView />);
 
@@ -234,6 +244,21 @@ describe("ReaderView", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Clear selection" })[0]);
     expect(screen.queryByText(/The encoder maps tokens to vectors\./)).not.toBeInTheDocument();
+  });
+
+  it("reports a failed copy instead of claiming success", async () => {
+    // Regression: the hook discarded the clipboard helper's boolean, so a
+    // webview that denies the clipboard still flipped to "Copied" and the
+    // user pasted nothing with no way to tell.
+    copyTextToClipboardMock.mockResolvedValue(false);
+    useReaderStore.setState({ selection: "The encoder maps tokens to vectors." });
+    render(<ReaderView />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Copy selection" })[0]);
+    expect((await screen.findAllByRole("button", { name: /Copy failed/ })).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
   });
 
   it("asks a question from the Ask tab and calls the store", () => {

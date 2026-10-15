@@ -10,8 +10,6 @@ export const ARXIV_CATEGORIES = [
   { code: "stat.ML", key: "categories.statML" },
 ] as const;
 
-export type CategoryCode = (typeof ARXIV_CATEGORIES)[number]["code"];
-
 export type PaperSource = "arxiv" | "semanticscholar";
 
 /**

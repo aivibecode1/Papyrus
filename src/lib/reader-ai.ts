@@ -5,8 +5,6 @@ import prompts from "../../src-tauri/prompts.json";
 import { isTauri, streamChatBrowser, toIpcProvider } from "@/lib/ai";
 import type { Paper, ProviderConfig } from "@/lib/types";
 
-export type ReaderStreamKind = "section" | "synthesis" | "qa";
-
 function fullPaperSystem(language: string): string {
   const base = language === "ar" ? prompts.fullPaperStructureAr : prompts.fullPaperStructureEn;
   return `${base}\n\nThe user will send you ONE section of the paper at a time. Apply the section structure to that section only. Respond in the same language as the user's request.`;

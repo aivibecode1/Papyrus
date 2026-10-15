@@ -7,14 +7,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PROVIDER_PRESETS } from "@/lib/types";
 import { ProviderForm } from "@/features/settings/provider-form";
 
-const { addProvider, updateProvider, saveKey } = vi.hoisted(() => ({
+const { addProvider, updateProvider, saveKey, bindProviderUrl } = vi.hoisted(() => ({
   addProvider: vi.fn(),
   updateProvider: vi.fn(),
   saveKey: vi.fn(),
+  bindProviderUrl: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/stores/settings", () => ({
-  useSettingsStore: () => ({ addProvider, updateProvider, saveKey }),
+  useSettingsStore: () => ({ addProvider, updateProvider, saveKey, bindProviderUrl }),
 }));
 
 const EMPTY = { baseUrl: "", model: "" };
@@ -125,6 +126,71 @@ describe("ProviderForm", () => {
     expect(screen.queryByRole("combobox", { name: "Preset" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Model")).toHaveValue("gpt-4o-mini");
     expect(updateProvider).not.toHaveBeenCalled();
+  });
+
+  it("re-binds the stored key when editing changes the base URL", async () => {
+    // Without the re-bind the backend kept resolving the OLD host for
+    // this key while the form showed the new one — the new endpoint was
+    // never contacted and there was no way to fix it from the UI.
+    const onSaved = vi.fn();
+    render(
+      <ProviderForm
+        editingId="prov-1"
+        initial={{ baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" }}
+        onCancel={noop}
+        onSaved={onSaved}
+        onKeySaved={noop}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Base URL"), {
+      target: { value: "https://gateway.corp/v1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(bindProviderUrl).toHaveBeenCalledWith("prov-1", "https://gateway.corp/v1");
+  });
+
+  it("does not touch the binding when the URL is unchanged", async () => {
+    const onSaved = vi.fn();
+    render(
+      <ProviderForm
+        editingId="prov-1"
+        initial={{ baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" }}
+        onCancel={noop}
+        onSaved={onSaved}
+        onKeySaved={noop}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(bindProviderUrl).not.toHaveBeenCalled();
+  });
+
+  it("keeps the form open with the reason when the re-bind fails", async () => {
+    // A failed re-bind must not close the form: closing it would leave
+    // the silent URL/key divergence the re-bind exists to prevent.
+    bindProviderUrl.mockRejectedValueOnce(new Error("cannot write bindings"));
+    const onSaved = vi.fn();
+    render(
+      <ProviderForm
+        editingId="prov-1"
+        initial={{ baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" }}
+        onCancel={noop}
+        onSaved={onSaved}
+        onKeySaved={noop}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Base URL"), {
+      target: { value: "https://gateway.corp/v1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/still tied to its previous host/)).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+    // The form is still open: the user can retry or cancel.
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
   it("shows inline errors for missing URL and model and does not save", () => {

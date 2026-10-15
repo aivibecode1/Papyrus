@@ -13,17 +13,21 @@ import { useReaderStore } from "@/stores/reader";
  */
 export function useCopySelection() {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const copySelection = useCallback(async () => {
     const selection = useReaderStore.getState().selection;
     if (!selection) return;
     const ok = await copyTextToClipboard(selection);
-    // Even a failed copy gets a brief "Copied" so the UI never freezes;
-    // the plan-052 failure string is reserved for the floating bar's
-    // explicit feedback path.
-    void ok;
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    // A failed copy must not claim success: the webview can deny the
+    // clipboard (permission, headless preview), and "Copied" over a
+    // failed write sends the user pasting nothing with no way to tell.
+    setCopied(ok);
+    setCopyFailed(!ok);
+    setTimeout(() => {
+      setCopied(false);
+      setCopyFailed(false);
+    }, 1500);
   }, []);
 
   // Plan 052: Ctrl/Cmd+C copies the current PDF selection when focus is
@@ -55,5 +59,5 @@ export function useCopySelection() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [copySelection]);
 
-  return { copied, copySelection };
+  return { copied, copyFailed, copySelection };
 }

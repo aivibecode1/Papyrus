@@ -41,7 +41,7 @@ export function ProviderForm({
   onKeySaved,
 }: ProviderFormProps) {
   const { t } = useTranslation();
-  const { addProvider, updateProvider, saveKey } = useSettingsStore();
+  const { addProvider, updateProvider, saveKey, bindProviderUrl } = useSettingsStore();
 
   const [form, setForm] = useState(() => {
     const preset = initialPreset ? PROVIDER_PRESETS[initialPreset] : undefined;
@@ -98,8 +98,31 @@ export function ProviderForm({
         form.model,
         presetModels,
       );
-      if (editingId) updateProvider(config);
-      else addProvider(config);
+      if (editingId) {
+        updateProvider(config);
+        // The backend keeps the key bound to the host it was saved for,
+        // so a URL edit has to re-bind it. Without this the form would
+        // show the new URL while every request still went to the old
+        // one. A bind failure is fatal for this save: closing the form
+        // on it would leave exactly that silent divergence behind.
+        const urlChanged = form.baseUrl.trim() !== (initial.baseUrl ?? "").trim();
+        if (urlChanged) {
+          try {
+            await bindProviderUrl(id, form.baseUrl.trim());
+          } catch (err) {
+            setSaveError(
+              t("settings.urlBindFailed", {
+                error: truncateError(
+                  redactSecrets(err instanceof Error ? err.message : String(err)),
+                ),
+              }),
+            );
+            return;
+          }
+        }
+      } else {
+        addProvider(config);
+      }
       if (form.key.trim()) {
         await saveKey(id, form.key.trim());
         onKeySaved(id);

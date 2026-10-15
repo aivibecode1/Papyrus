@@ -207,6 +207,28 @@ pub async fn save_api_key(
     set_key(KEYRING_SERVICE, &provider_id, key.trim())
 }
 
+/// Re-binds an existing key to a base URL without touching the key itself.
+///
+/// `save_api_key` writes a binding only when a key is (re-)entered, so
+/// editing a provider's URL on its own used to leave the key resolving
+/// to the previous host: the Settings UI showed the new URL while every
+/// request still went to the old one, and the only way out was deleting
+/// and re-adding the provider. Runs the same `build_chat_url` validation
+/// `save_api_key` applies so an unusable URL is rejected before it is
+/// persisted.
+#[tauri::command]
+pub async fn set_provider_url(
+    app: tauri::AppHandle,
+    provider_id: String,
+    base_url: String,
+) -> Result<(), String> {
+    if provider_id.is_empty() || provider_id.len() > 64 {
+        return Err("Invalid provider id".into());
+    }
+    let chat_url = build_chat_url(&base_url)?;
+    provider_urls::save_binding(Some(&app), &provider_id, &chat_url)
+}
+
 /// Removes a stored API key from the OS keychain.
 /// Removes a stored API key from the OS keychain.
 #[tauri::command]

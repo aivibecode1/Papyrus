@@ -132,6 +132,32 @@ fn is_private_addr(ip: std::net::IpAddr) -> bool {
     }
 }
 
+/// Splits an https URL's authority into its bare host (no port, no
+/// brackets) and its effective port (explicit port or the 443 default).
+///
+/// Pure so the port handling is unit-testable without DNS. The port must
+/// be separated: `tokio::net::lookup_host`'s `(host, port)` form rejects
+/// a `"host:port"` authority (verified: `("127.0.0.1:8443", 443)` fails
+/// to resolve), and the DNS pin keys off the bare host — passing the
+/// port-carrying authority through failed every non-default-port PDF with
+/// a misleading "could not be resolved" and left the pin silently
+/// unmatched for the ones that did resolve.
+fn split_authority(url: &str) -> Result<(String, u16), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| "PDF url must be https".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("PDF url must be https".into());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("PDF url must not carry credentials".into());
+    }
+    let host = parsed
+        .host_str()
+        .filter(|h| !h.is_empty())
+        .ok_or_else(|| "PDF url has no host".to_string())?
+        .to_string();
+    Ok((host, parsed.port().unwrap_or(443)))
+}
+
 /// SSRF guard for source-provided PDF urls (S2 `openAccessPdf` hosts are
 /// arbitrary publisher domains, so they cannot be derived from the id).
 /// Rejects anything but https with no credentials, and refuses hosts that
@@ -139,18 +165,8 @@ fn is_private_addr(ip: std::net::IpAddr) -> bool {
 /// 169.254.169.254 is link-local and covered). Returns the validated host
 /// and its public addresses so the download can be pinned to them.
 async fn validate_public_https(url: &str) -> Result<(String, Vec<std::net::SocketAddr>), String> {
-    let rest = url
-        .strip_prefix("https://")
-        .ok_or_else(|| "PDF url must be https".to_string())?;
-    if rest.contains('@') {
-        return Err("PDF url must not carry credentials".into());
-    }
-    let host = rest
-        .split(['/', '?', '#'])
-        .next()
-        .filter(|h| !h.is_empty())
-        .ok_or_else(|| "PDF url has no host".to_string())?;
-    let ips: Vec<std::net::SocketAddr> = tokio::net::lookup_host((host, 443))
+    let (host, port) = split_authority(url)?;
+    let ips: Vec<std::net::SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
         .await
         .map_err(|_| "PDF host could not be resolved".to_string())?
         .collect();
@@ -162,7 +178,7 @@ async fn validate_public_https(url: &str) -> Result<(String, Vec<std::net::Socke
             return Err("PDF host resolves to a private address".into());
         }
     }
-    Ok((host.to_string(), ips))
+    Ok((host, ips))
 }
 
 /// Decides the next hop for a response. Returns None when the response is
@@ -530,11 +546,57 @@ mod tests {
             "https://169.254.169.254/latest/meta-data", // metadata IP
             "https://localhost/paper.pdf",              // loopback via hosts file
             "https://user:pass@arxiv.org/paper.pdf",    // credentials
-            "https:///paper.pdf",                       // no host
+            "https://",                                 // empty host
         ];
         for url in cases {
             let err = run(validate_public_https(url)).expect_err("must reject {url}");
             assert!(!err.is_empty(), "expected an error for {url}");
+        }
+    }
+
+    /// The authority splitter is where the port bug lived: the old code
+    /// passed `host:port` to lookup_host (which rejects it, failing every
+    /// non-default-port PDF with a misleading resolution error) and used
+    /// that same string as the DNS-pin key (where it can never match the
+    /// bare reqwest host). These pins cover every shape a publisher URL
+    /// can take.
+    #[test]
+    fn split_authority_separates_host_and_port() {
+        let cases = [
+            ("https://host.example/x.pdf", "host.example", 443),
+            ("https://host.example:8443/x.pdf", "host.example", 8443),
+            (
+                "https://host.example:8443/a.pdf?x=1#y",
+                "host.example",
+                8443,
+            ),
+            ("https://host.example./x.pdf", "host.example.", 443),
+            // IPv6 keeps its brackets: that is the form reqwest keys its
+            // DNS pin by (Uri::host()), so the guard and the pin agree.
+            ("https://[2001:db8::1]:8443/x.pdf", "[2001:db8::1]", 8443),
+            ("https://[2001:db8::1]/x.pdf", "[2001:db8::1]", 443),
+        ];
+        for (url, want_host, want_port) in cases {
+            let (host, port) = split_authority(url).expect("must accept {url}");
+            assert_eq!(host, want_host, "host mismatch for {url}");
+            assert_eq!(port, want_port, "port mismatch for {url}");
+        }
+    }
+
+    #[test]
+    fn split_authority_rejects_bad_urls() {
+        let cases = [
+            ("http://host.example/x.pdf", "must be https"),
+            ("https://user:pass@host.example/x.pdf", "credentials"),
+            ("https://", "must be https"), // empty host
+            ("not a url", "must be https"),
+        ];
+        for (url, want) in cases {
+            let err = split_authority(url).expect_err("must reject {url}");
+            assert!(
+                err.contains(want),
+                "expected /{want}/ for {url}, got: {err}"
+            );
         }
     }
 

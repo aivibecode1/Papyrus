@@ -100,10 +100,15 @@ export function DataSection() {
     setClearMessage(null);
     try {
       await invoke("clear_app_cache");
-      // Wipe the app's saved data (keep in sync with the stores'
-      // STORAGE_KEY constants). Providers, the active provider, the
+      // Wipe the app's saved data. Providers, the active provider, the
       // language and the theme are NOT touched. A reload re-initialises
       // every store from the now-empty storage.
+      // The per-session leftovers must be included: provider test
+      // results, the papers search field/scope and the reader text
+      // scale lived in their own keys and survived earlier wipes,
+      // leaving stale provider-test badges and search preferences
+      // behind after everything else was gone. Keep the list in sync
+      // with the stores' STORAGE_KEY constants.
       for (const key of [
         "papyrus-digest-v2",
         "papyrus-favorites",
@@ -111,8 +116,12 @@ export function DataSection() {
         "papyrus-reader-pos",
         "papyrus-reader-split",
         "papyrus-reader-walkthrough-v1",
+        "papyrus-reader-text-scale",
         "papyrus-notes-v1",
         "papyrus-reading-history-v1",
+        "papyrus-provider-test-v1",
+        "papyrus-search-field",
+        "papyrus-search-limit-category",
       ]) {
         localStorage.removeItem(key);
       }

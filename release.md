@@ -98,7 +98,7 @@ Quality gates: pending — run `pnpm run typecheck`, `pnpm run lint`,
   chat export/import round-trip, the restored-walkthrough continue and
   regenerate paths, the note-delete rollback, the favorites-map
   subscription, the find-marks rebuild, and the token-exposure
-  inventory. Rust: 167 tests, frontend: 475 tests.
+  inventory. Rust: 169 tests, frontend: 495 tests.
 - Fixed: the CI dependency-audit gate went red on new advisories
   against the same unreachable dev-only chains (a critical proxy-addr
   IP-spoofing and 10 highs across the shadcn CLI, jsdom and eslint).
@@ -116,6 +116,57 @@ Quality gates: pending — run `pnpm run typecheck`, `pnpm run lint`,
   src-tauri/Cargo.lock — a lockfile-only change, same as the earlier
   h2 and rustls bumps — and the Rust tests, clippy and rustfmt gates
   re-run green.
+- Fixed: an imported note or history entry with an unparseable date
+  crashed the whole app: date validation accepted any string, then the
+  formatter threw on "Invalid Date" during render, the ErrorBoundary
+  replaced every view, and the bad value stayed persisted so the crash
+  repeated on every reload. An invalid date now renders as nothing.
+- Fixed: stopping a walkthrough section mid-stream did not persist it,
+  so a restart resumed one section earlier than the user stopped — the
+  chat branch has always persisted its stopped answer, the walkthrough
+  branch now does too.
+- Fixed: copying a PDF selection always claimed success, even when the
+  webview denied the clipboard — the user pasted nothing with no way to
+  tell it failed. The selection bar and panel strip show a translated
+  failure state instead.
+- Fixed: the Ask panel retargeted a smooth scroll on every streaming
+  flush (~20x/s), jittering the answer text; it follows the stream
+  instantly now and animates only on new messages and stream end.
+- Fixed: a failed keychain read on the Settings page was an unhandled
+  rejection that left the provider card silently at "key missing"; it is
+  caught and the state flips to missing deliberately.
+- Fixed: "Clear all data" left provider test results, the papers
+  search field/scope and the reader text scale behind — the wipe now
+  covers every key the app writes except the theme and language.
+- Fixed: editing an existing provider's base URL kept the API key bound
+  to the previous host. The Settings form showed the new URL while
+  every explain/test/ask call still went to the old one, with no way to
+  fix it short of deleting and re-adding the provider. A new
+  `set_provider_url` command re-binds the key's host (same validation
+  as the key save), the edit path calls it when the URL changes, and a
+  failed re-bind keeps the form open with the reason instead of
+  silently closing on the divergence.
+- Fixed: every PDF served from a non-default port failed the SSRF
+  guard with a misleading "host could not be resolved": the authority
+  was passed to the resolver with its port attached, which the resolver
+  rejects, and the same port-carrying string was used as the DNS-pin
+  key, where it could never match. The authority is now split into host
+  and port (pure, unit-tested) and the pin uses the URL's own port.
+- Fixed: the CI frontend job never ran the node:test suite, so the dev
+  mock AI server's CORS/SSE contract and the release-integrity test
+  could rot silently; `pnpm test:dev` runs in CI now, and
+  docs/development.md documents it alongside check-release-integrity.
+- Docs: corrected the provider lists (Mistral was advertised but is not
+  a preset), added OpenCode Go to the setup presets, fixed the
+  explanation length to the ~300 words the prompts actually request,
+  updated the architecture IPC table (import_history, clear_history,
+  import_notes, the import_data scope and the pdf/ module path), and
+  refreshed the stale test counts.
+- Added: tests for the invalid-date guard, the stopped-walkthrough
+  persistence, the browser key store's memory-only contract, the
+  toolbar-helpers pure functions, the papers search-prefs round-trip,
+  the ErrorBoundary recovery screen, the set_provider_url store action
+  and the URL-edit re-binding (success, no-change and failure paths).
 
 ---
 

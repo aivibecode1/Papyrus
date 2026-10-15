@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 interface SelectionBarProps {
   selection: string;
   copied: boolean;
+  copyFailed: boolean;
   saving: boolean;
   onCopy: () => void;
   onSaveHighlight: () => void;
@@ -20,6 +21,7 @@ interface SelectionBarProps {
 export function SelectionBar({
   selection,
   copied,
+  copyFailed,
   saving,
   onCopy,
   onSaveHighlight,
@@ -36,8 +38,18 @@ export function SelectionBar({
         </span>
       </span>
       <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={onCopy}>
-        {copied ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-        {copied ? t("reader.copied") : t("reader.copySelection")}
+        {copyFailed ? (
+          <X className="size-3 text-destructive" />
+        ) : copied ? (
+          <Check className="size-3 text-primary" />
+        ) : (
+          <Copy className="size-3" />
+        )}
+        {copyFailed
+          ? t("reader.copyFailed")
+          : copied
+            ? t("reader.copied")
+            : t("reader.copySelection")}
       </Button>
       <Button
         variant="ghost"

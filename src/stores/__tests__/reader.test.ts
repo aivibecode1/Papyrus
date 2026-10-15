@@ -327,6 +327,13 @@ describe("reader store", () => {
 
     const s = useReaderStore.getState();
     expect(s.sectionEntries[0].status).toBe("stopped");
+    // The stopped walkthrough is persisted, mirroring the chat branch:
+    // a section stopped mid-stream must survive a restart, or the resume
+    // point silently jumps backwards one section.
+    const saved = JSON.parse(
+      localStorage.getItem("papyrus-reader-walkthrough-v1") ?? "{}",
+    ) as Record<string, { sectionEntries: { status: string }[] }>;
+    expect(saved[paper.id]?.sectionEntries[0]?.status).toBe("stopped");
   });
 
   it("a stream started during stop's round-trip stays cancellable", async () => {

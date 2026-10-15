@@ -575,6 +575,11 @@ export const useReaderStore = create<ReaderState>((set, get) => {
               ? { ...s.synthesis, status: "stopped" as const }
               : s.synthesis,
         }));
+        // Persist the stopped walkthrough, mirroring the chat branch
+        // below: a section stopped mid-stream is state the user chose to
+        // keep, and losing it made the resume point jump backwards after
+        // a restart (chat has always survived a stop).
+        persistCurrentWalkthrough();
       } else if (chatBusy) {
         chatGen += 1;
         await stopActiveStream();

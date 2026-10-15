@@ -14,6 +14,17 @@ describe("formatUiDate", () => {
     const out = formatUiDate("2026-07-31T00:00:00Z", "ar", { dateStyle: "medium" });
     expect(out).not.toMatch(/[\u200e\u200f]/);
   });
+
+  it("renders nothing for an unparseable date instead of throwing", () => {
+    // Regression: a note or history entry imported with a garbage
+    // updatedAt passed validation (it is a string), then Intl threw
+    // RangeError on "Invalid Date" during render — the ErrorBoundary
+    // replaced the whole view and the bad value stayed persisted, so
+    // the crash repeated on every reload.
+    expect(formatUiDate("not-a-date", "en", { dateStyle: "medium" })).toBe("");
+    expect(formatUiDate("", "ar", { dateStyle: "medium" })).toBe("");
+    expect(formatUiDate(new Date(Number.NaN), "en", { dateStyle: "medium" })).toBe("");
+  });
 });
 
 describe("formatCalendarDay", () => {

@@ -22,6 +22,7 @@ pub fn run() {
             ai::commands::test_provider,
             ai::commands::stop_explaining,
             ai::commands::save_api_key,
+            ai::commands::set_provider_url,
             ai::commands::delete_api_key,
             ai::commands::has_api_key,
             pdf::fetch_pdf,

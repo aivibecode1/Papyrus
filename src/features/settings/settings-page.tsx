@@ -51,9 +51,12 @@ export function SettingsPage() {
 
   const refreshKeyStates = () => {
     for (const p of providers) {
-      void hasKey(p.id).then((has) =>
-        setKeyStates((s) => (s[p.id] === has ? s : { ...s, [p.id]: has })),
-      );
+      // A keychain read can fail (Windows Credential Manager unavailable);
+      // without a catch that is an unhandled rejection and the card just
+      // sits at "key missing" with no explanation.
+      void hasKey(p.id)
+        .then((has) => setKeyStates((s) => (s[p.id] === has ? s : { ...s, [p.id]: has })))
+        .catch(() => setKeyStates((s) => (s[p.id] === false ? s : { ...s, [p.id]: false })));
     }
   };
 

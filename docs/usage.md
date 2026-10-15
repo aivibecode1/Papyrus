@@ -5,9 +5,9 @@
 1. **Install the app.** Use the Windows installer (MSI or setup EXE) or
    the macOS app bundle from the release page.
 2. **Add an AI provider.** Open Settings, press "Add provider", choose a
-   preset (OpenAI, OpenRouter, DeepSeek, Groq, Ollama) or type a custom
-   base URL and model. Paste your API key. Press "Test" to check the
-   connection. Ollama on your own machine works without a key.
+   preset (OpenAI, OpenRouter, DeepSeek, Groq, Ollama, OpenCode Go) or
+   type a custom base URL and model. Paste your API key. Press "Test" to
+   check the connection. Ollama on your own machine works without a key.
 3. **Browse papers.** Pick a field from the sidebar. The 20 newest papers
    appear, newest first. Use the search box to look for any topic. Press
    the refresh button to check for new uploads.
@@ -70,7 +70,7 @@ mentor is asked to:
 4. Point out the paper's assumptions and weaknesses
 5. Never invent details that are not in the paper
 
-The answer is 200 to 300 words, in short paragraphs, in the language of
+The answer is around 300 words, in short paragraphs, in the language of
 the interface (English or Arabic), and it renders as real markdown:
 headings, lists, tables, math equations and even diagrams. The text
 appears progressively as the provider generates it. You can stop or

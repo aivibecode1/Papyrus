@@ -12,6 +12,12 @@ export function formatUiDate(
   options: Intl.DateTimeFormatOptions,
 ): string {
   const date = typeof value === "string" ? new Date(value) : value;
+  // An unparseable date reaches Intl as "Invalid Date" and the formatter
+  // throws RangeError — which, for an imported note or history entry,
+  // took down the whole view through the ErrorBoundary and stayed broken
+  // across reloads because the bad value was persisted. Render nothing
+  // instead: a blank date is honest, a crash is not.
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat(locale, options).format(date).replace(/[\u200e\u200f]/g, "");
 }
 

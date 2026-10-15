@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 interface PanelSelectionStripProps {
   selection: string;
   copied: boolean;
+  copyFailed: boolean;
   saving: boolean;
   onCopy: () => void;
   onClear: () => void;
@@ -20,6 +21,7 @@ interface PanelSelectionStripProps {
 export function PanelSelectionStrip({
   selection,
   copied,
+  copyFailed,
   saving,
   onCopy,
   onClear,
@@ -39,10 +41,28 @@ export function PanelSelectionStrip({
         variant="ghost"
         size="icon-xs"
         onClick={onCopy}
-        aria-label={copied ? t("reader.copied") : t("reader.copySelection")}
-        title={copied ? t("reader.copied") : t("reader.copySelection")}
+        aria-label={
+          copyFailed
+            ? t("reader.copyFailed")
+            : copied
+              ? t("reader.copied")
+              : t("reader.copySelection")
+        }
+        title={
+          copyFailed
+            ? t("reader.copyFailed")
+            : copied
+              ? t("reader.copied")
+              : t("reader.copySelection")
+        }
       >
-        {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+        {copyFailed ? (
+          <X className="size-3.5 text-destructive" />
+        ) : copied ? (
+          <Check className="size-3.5 text-primary" />
+        ) : (
+          <Copy className="size-3.5" />
+        )}
       </Button>
       <Button
         variant="ghost"
