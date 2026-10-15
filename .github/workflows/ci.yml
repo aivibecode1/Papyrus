@@ -30,6 +30,19 @@ jobs:
       # the same unreachable shadcn chain) — also fixed by an override.
       # Remaining baseline is 2 low + 15 moderate. Revisit if new highs
       # appear.
+      #
+      # 2026-10-15 round: new advisories against the same unreachable
+      # dev-only chains. Fixed by overrides — fast-uri 3.1.7 (new
+      # advisories against the pinned 3.1.6), proxy-addr 2.0.8
+      # (critical, via the shadcn CLI's MCP SDK -> express),
+      # @modelcontextprotocol/sdk 1.31.0, undici 8.10.2 (jsdom and
+      # shadcn), brace-expansion 5.0.11 (eslint -> minimatch) and
+      # source-map-js 1.2.2 (jsdom -> css-tree). One high has no
+      # patched release at all — braces <=3.0.3 (GHSA-vfj7-8cjw-p6xm, a
+      # stack-exhaustion DoS in glob patterns, reachable only through
+      # the shadcn CLI's fast-glob) — so it is ignored via
+      # pnpm.auditConfig.ignoreGhsas and this note. Remove the ignore
+      # once upstream ships a fix.
       - run: pnpm audit --audit-level=high
 
   # Plan 077: Rust advisory audit on linux only (cargo-audit recompiles

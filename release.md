@@ -99,6 +99,16 @@ Quality gates: pending — run `pnpm run typecheck`, `pnpm run lint`,
   regenerate paths, the note-delete rollback, the favorites-map
   subscription, the find-marks rebuild, and the token-exposure
   inventory. Rust: 167 tests, frontend: 475 tests.
+- Fixed: the CI dependency-audit gate went red on new advisories
+  against the same unreachable dev-only chains (a critical proxy-addr
+  IP-spoofing and 10 highs across the shadcn CLI, jsdom and eslint).
+  Patched versions are pinned with pnpm.overrides (fast-uri 3.1.7,
+  proxy-addr 2.0.8, @modelcontextprotocol/sdk 1.31.0, undici 8.10.2,
+  brace-expansion 5.0.11, source-map-js 1.2.2); the single advisory
+  with no upstream fix — braces 3.0.3, a glob-pattern DoS reachable
+  only through the shadcn CLI's fast-glob — is ignored via
+  pnpm.auditConfig.ignoreGhsas and documented in ci.yml. The gate
+  exits 0 again.
 
 ---
 
