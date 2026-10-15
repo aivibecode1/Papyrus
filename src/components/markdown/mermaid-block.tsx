@@ -40,7 +40,7 @@ export function MermaidBlock({ code }: MermaidBlockProps) {
         mermaid.initialize({
           startOnLoad: false,
           securityLevel: "strict",
-          theme: theme === "dark" ? "dark" : "neutral",
+          theme: theme === "dark" || theme === "dos" ? "dark" : "neutral",
         });
         const { svg: rendered } = await mermaid.render(idRef.current, code);
         if (!cancelled) setSvg(rendered);

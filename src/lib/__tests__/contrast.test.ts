@@ -1,5 +1,5 @@
 // Contrast audit (plan 044 WU5): --muted-foreground must reach WCAG AA
-// (4.5:1) on --card and --background in all three themes. The test uses
+// (4.5:1) on --card and --background in every theme. The test uses
 // hex constants duplicated from the oklch tokens in src/index.css —
 // keep them in sync when the tokens change (the audit in the commit
 // message recomputes them from oklch).
@@ -55,6 +55,11 @@ const THEMES = {
     mutedForeground: "#9B9893",
     card: "#1D1915",
     background: "#120F0C",
+  },
+  dos: {
+    mutedForeground: "#A4A4A4",
+    card: "#0B0B0B",
+    background: "#030303",
   },
 };
 

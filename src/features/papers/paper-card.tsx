@@ -25,7 +25,11 @@ interface PaperCardProps {
 export function PaperCard({ paper, index = 0 }: PaperCardProps) {
   const { t, i18n } = useTranslation();
   const { providers, activeProviderId } = useSettingsStore();
-  const isFavorite = useFavoritesStore((s) => s.isFavorite);
+  // Subscribe to the entry itself, not to isFavorite (a stable function
+  // reference): selecting the function meant the component never
+  // re-rendered when the favorite map changed, so the star kept its old
+  // state until something else re-rendered the card.
+  const favorited = useFavoritesStore((s) => s.byId[paper.id] !== undefined);
   const toggleFavorite = useFavoritesStore((s) => s.toggle);
   const openReader = useReaderStore((s) => s.open);
   const setView = useUiStore((s) => s.setView);
@@ -34,7 +38,6 @@ export function PaperCard({ paper, index = 0 }: PaperCardProps) {
   const toggle = useExplanationStore((s) => s.toggle);
   const start = useExplanationStore((s) => s.start);
   const expanded = expandedId === paper.id;
-  const favorited = isFavorite(paper.id);
 
   const published = formatUiDate(new Date(paper.published), i18n.language, {
     dateStyle: "medium",

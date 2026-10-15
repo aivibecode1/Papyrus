@@ -6,7 +6,7 @@ import type { Paper, PaperNote } from "@/lib/types";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useHistoryStore } from "@/stores/history";
 import { useNotesStore } from "@/stores/notes";
-import { CHAT_STORAGE_KEY } from "@/stores/reader-persist";
+import { CHAT_STORAGE_KEY, loadChat } from "@/stores/reader-persist";
 
 const paper: Paper = {
   id: "p1",
@@ -51,6 +51,43 @@ describe("buildExportPayload", () => {
 
     expect(payload.app).toBe("papyrus");
     expect(payload.favorites).toEqual([paper]);
+    expect(payload.chat.p1).toEqual([
+      { role: "user", content: "What is this?" },
+      { role: "assistant", content: "A paper about things." },
+    ]);
+  });
+
+  it("exports transcripts persisted in the real ChatMessage shape", async () => {
+    // Regression: the mapper read `content`, but the persisted
+    // ChatMessage field is `text`, so every real transcript exported
+    // as an empty chat section.
+    useFavoritesStore.setState({ loaded: true });
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        p1: [
+          {
+            id: 1,
+            role: "user",
+            text: "What is this?",
+            status: "done",
+            error: null,
+            selection: null,
+          },
+          {
+            id: 2,
+            role: "assistant",
+            text: "A paper about things.",
+            status: "done",
+            error: null,
+            selection: null,
+          },
+        ],
+      }),
+    );
+
+    const payload = await buildExportPayload();
+
     expect(payload.chat.p1).toEqual([
       { role: "user", content: "What is this?" },
       { role: "assistant", content: "A paper about things." },
@@ -150,7 +187,18 @@ describe("importSavedData", () => {
     useFavoritesStore.getState().toggle(paper); // p1 already saved locally
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify({ p1: [{ role: "user", content: "local question" }] }),
+      JSON.stringify({
+        p1: [
+          {
+            id: 1,
+            role: "user",
+            text: "local question",
+            status: "done",
+            error: null,
+            selection: null,
+          },
+        ],
+      }),
     );
 
     const summary = await importSavedData(exportFile);
@@ -163,11 +211,60 @@ describe("importSavedData", () => {
     const byId = useFavoritesStore.getState().byId;
     expect(byId.p2.title).toBe("Imported paper");
     expect(byId.p1).toEqual(paper);
-    // Chat turns are appended, not replaced.
+    // Chat turns are appended, not replaced, in the persisted shape.
     const raw = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? "{}");
-    expect(raw.p1.map((t: { content: string }) => t.content)).toEqual([
+    expect(raw.p1.map((t: { text: string }) => t.text)).toEqual([
       "local question",
       "Imported question?",
+    ]);
+  });
+
+  it("imports chat turns in the persisted shape the reader can load", async () => {
+    // Regression: the import used to write the export {role, content}
+    // shape straight into chat storage, and loadChat filters on `text`,
+    // so every imported turn was invisible in the reader.
+    useFavoritesStore.setState({ loaded: true });
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        p1: [
+          {
+            id: 7,
+            role: "user",
+            text: "old question",
+            status: "done",
+            error: null,
+            selection: null,
+          },
+        ],
+      }),
+    );
+
+    await importSavedData(
+      JSON.stringify({
+        app: "papyrus",
+        chat: {
+          p1: [
+            { role: "user", content: "imported question" },
+            { role: "assistant", content: "imported answer" },
+          ],
+        },
+      }),
+    );
+
+    const raw = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? "{}");
+    expect(raw.p1).toHaveLength(3);
+    expect(raw.p1[1]).toMatchObject({ role: "user", text: "imported question" });
+    expect(raw.p1[2]).toMatchObject({ role: "assistant", text: "imported answer" });
+    // Fresh ids past the existing highest: reusing low ids collides
+    // with restored messages and corrupts the transcript.
+    expect(raw.p1[1].id).toBeGreaterThan(7);
+    expect(raw.p1[2].id).toBeGreaterThan(raw.p1[1].id);
+    // The reader's own loader sees all three turns.
+    expect(loadChat("p1").map((m) => m.text)).toEqual([
+      "old question",
+      "imported question",
+      "imported answer",
     ]);
   });
 

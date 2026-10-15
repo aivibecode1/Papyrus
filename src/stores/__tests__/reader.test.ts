@@ -411,6 +411,67 @@ describe("reader store", () => {
     expect(streamSectionExplanation).not.toHaveBeenCalled();
   });
 
+  it("continues a restored walkthrough at the right section, not the synthesis", async () => {
+    // Regression: open() restores the ENTRIES but not the sections
+    // (extraction is lazy), so sectionIndex sits past an empty sections
+    // array. Continue used to fall straight through to the synthesis
+    // and stream it from empty paper text, skipping the sections that
+    // were never explained.
+    localStorage.setItem(
+      "papyrus-reader-walkthrough-v1",
+      JSON.stringify({
+        "2607.00001": {
+          sectionEntries: [
+            { text: "Intro explained.", status: "done", error: null },
+            { text: "Method explained.", status: "done", error: null },
+          ],
+          synthesis: null,
+        },
+      }),
+    );
+    vi.mocked(streamSectionExplanation).mockImplementation(chunkStream(["results explained"]));
+
+    await useReaderStore.getState().open(paper);
+    await useReaderStore.getState().continueWalkthrough(provider, "en");
+
+    const s = useReaderStore.getState();
+    // The third (never-explained) section is streamed next.
+    expect(s.sectionEntries).toHaveLength(3);
+    expect(s.sectionEntries[2].text).toBe("results explained");
+    expect(s.sectionEntries[2].status).toBe("done");
+    // The synthesis was NOT run out of order.
+    expect(s.synthesis).toBeNull();
+    expect(streamSynthesis).not.toHaveBeenCalled();
+    // Extraction happened exactly once, as part of the continue.
+    expect(extractTextFromPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it("regenerates the last section of a restored walkthrough", async () => {
+    // Same restored state as above: without the extraction guard the
+    // bounds check below silently no-oped (sections was empty).
+    localStorage.setItem(
+      "papyrus-reader-walkthrough-v1",
+      JSON.stringify({
+        "2607.00001": {
+          sectionEntries: [
+            { text: "Intro explained.", status: "done", error: null },
+            { text: "Method explained.", status: "stopped", error: null },
+          ],
+          synthesis: null,
+        },
+      }),
+    );
+    vi.mocked(streamSectionExplanation).mockImplementation(chunkStream(["method again"]));
+
+    await useReaderStore.getState().open(paper);
+    await useReaderStore.getState().regenerateSection(provider, "en");
+
+    const s = useReaderStore.getState();
+    expect(s.sectionEntries).toHaveLength(2);
+    expect(s.sectionEntries[1].text).toBe("method again");
+    expect(s.sectionEntries[1].status).toBe("done");
+  });
+
   it("persists the walkthrough after a section completes", async () => {
     await useReaderStore.getState().open(paper);
     vi.mocked(streamSectionExplanation).mockImplementation(chunkStream(["hello section"]));

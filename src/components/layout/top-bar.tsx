@@ -1,4 +1,4 @@
-import { Lamp, Moon, NotebookPen, ScrollText, Settings, Sun } from "lucide-react";
+import { Lamp, Moon, NotebookPen, ScrollText, Settings, Sun, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -76,6 +76,8 @@ export function TopBar() {
               <Moon className="size-4" />
             ) : theme === "sepia" ? (
               <Lamp className="size-4" />
+            ) : theme === "dos" ? (
+              <Terminal className="size-4" />
             ) : (
               <Sun className="size-4" />
             )}

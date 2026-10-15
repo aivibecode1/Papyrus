@@ -90,11 +90,6 @@ export function notesForPaperList(notes: PaperNote[], paperId: string): PaperNot
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-/** Notes for one paper, newest first. */
-export function notesForPaper(state: NotesState, paperId: string): PaperNote[] {
-  return notesForPaperList(state.notes, paperId);
-}
-
 /** Pure filter used by the hub page (reactive selectors) and tests. */
 export function filterNotes(
   notes: PaperNote[],
@@ -113,11 +108,6 @@ export function filterNotes(
     );
   }
   return [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-/** Hub listing: filtered by paper and/or query, reverse-chronological. */
-export function filteredNotes(state: NotesState): PaperNote[] {
-  return filterNotes(state.notes, state.filterPaperId, state.query);
 }
 
 // The outstanding disk read, so concurrent callers join one load instead of
@@ -208,16 +198,31 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   remove: async (id) => {
+    const before = get().notes;
     set((s) => ({ notes: s.notes.filter((n) => n.id !== id) }));
     // Tombstone the id while the first snapshot is in flight so the
     // merge cannot resurrect it (plan 046).
-    if (get().loading) {
+    const tombstoned = get().loading;
+    if (tombstoned) {
       set((s) => ({ pendingDeletes: [...s.pendingDeletes, id] }));
     }
-    if (isTauri()) {
-      await invoke("delete_note", { id });
-    } else {
-      saveBrowserNotes(get().notes);
+    try {
+      if (isTauri()) {
+        await invoke("delete_note", { id });
+      } else {
+        saveBrowserNotes(get().notes);
+      }
+    } catch (err) {
+      // Roll back, mirroring upsert: without this the note is gone from
+      // the screen while it still exists on disk, so the next load
+      // resurrects it and the user cannot tell what happened. The
+      // tombstone must go too — the delete failed, so the merge has to
+      // be allowed to keep the note.
+      set((s) => ({
+        notes: before,
+        pendingDeletes: tombstoned ? s.pendingDeletes.filter((x) => x !== id) : s.pendingDeletes,
+      }));
+      throw err;
     }
   },
 

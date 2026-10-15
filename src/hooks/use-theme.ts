@@ -3,13 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 const STORAGE_KEY = "papyrus-theme";
 const ARABIC_FONT_KEY = "papyrus-arabic-font";
 
-export type Theme = "light" | "sepia" | "dark";
+export type Theme = "light" | "sepia" | "dark" | "dos";
 
-/** The three themes in cycle order (light -> sepia -> dark -> light). */
-export const THEMES: readonly Theme[] = ["light", "sepia", "dark"];
+/** The four themes in cycle order (light -> sepia -> dark -> dos -> light). */
+export const THEMES: readonly Theme[] = ["light", "sepia", "dark", "dos"];
 
 export function isTheme(value: unknown): value is Theme {
-  return value === "light" || value === "sepia" || value === "dark";
+  return value === "light" || value === "sepia" || value === "dark" || value === "dos";
 }
 
 /** Plan 064: the user-selectable Arabic font (IBM Plex = sans default,
@@ -41,10 +41,11 @@ function getInitialArabicFont(): ArabicFont {
 
 /** Applies the theme to the document: the `dark` class drives Tailwind's
  * dark: variants, and `data-theme` drives the per-theme CSS tokens
- * (light/sepia/dark palettes in index.css). */
+ * (light/sepia/dark/dos palettes in index.css). */
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  root.classList.toggle("dark", theme === "dark");
+  // dos is a dark palette too, so it takes the dark: variants as well.
+  root.classList.toggle("dark", theme === "dark" || theme === "dos");
   root.dataset.theme = theme;
 }
 

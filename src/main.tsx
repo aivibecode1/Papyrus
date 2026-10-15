@@ -11,14 +11,15 @@ document.documentElement.dir = savedLang === "ar" ? "rtl" : "ltr";
 const savedTheme = localStorage.getItem("papyrus-theme");
 if (
   savedTheme === "dark" ||
+  savedTheme === "dos" ||
   (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)
 ) {
   document.documentElement.classList.add("dark");
 }
-// Sepia is a light palette variant selected via data-theme (the hook
+// Sepia and dos are palette variants selected via data-theme (the hook
 // mirrors this on every change).
-if (savedTheme === "sepia") {
-  document.documentElement.dataset.theme = "sepia";
+if (savedTheme === "sepia" || savedTheme === "dos") {
+  document.documentElement.dataset.theme = savedTheme;
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

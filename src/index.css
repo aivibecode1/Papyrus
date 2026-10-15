@@ -242,6 +242,84 @@
   --chart-5: oklch(0.645 0.246 16.439);
 }
 
+/*
+ * DOS theme: classic-terminal monochrome. Nearly pure black canvas,
+ * bright white text, every surface achromatic; primary and accent are
+ * inverse video (white slab, black text) — the one strong signal the
+ * palette keeps, matching how DOS editors highlighted the active item.
+ * Chrome is square-cornered and set in the bundled mono, so the whole
+ * app reads as one terminal; semantic red stays for destructive actions.
+ * Muted-foreground recomputed: 8.3:1 on background, 7.9:1 on card.
+ */
+[data-theme="dos"] {
+  color-scheme: dark;
+  --background: oklch(0.1 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.15 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.19 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.1 0 0);
+  --secondary: oklch(0.22 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.96 0 0);
+  --accent-foreground: oklch(0.1 0 0);
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.45 0 0);
+  --input: oklch(0.45 0 0);
+  --ring: oklch(0.96 0 0);
+  --chart-1: oklch(0.96 0 0);
+  --chart-2: oklch(0.72 0 0);
+  --chart-3: oklch(0.55 0 0);
+  --chart-4: oklch(0.45 0 0);
+  --chart-5: oklch(0.3 0 0);
+  /* Square corners and one typeface: the DOS editor chrome. The radius
+     tokens are redefined (not derived from --radius) so every
+     rounded-* utility collapses to 0 without negative calc(). */
+  --radius: 0;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --font-sans:
+    "Geist Mono", var(--font-arabic), ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas,
+    monospace;
+  --font-serif:
+    "Geist Mono", var(--font-arabic), ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas,
+    monospace;
+}
+
+/* The rounded-* and font-serif utilities inline their values from
+   @theme inline at build time, so the per-theme tokens above cannot
+   reach them: their compiled rules read var(--radius) with a literal
+   calc() offset, or a literal font stack. Force the four corner shapes
+   the app uses and the wordmark's serif to the DOS square/mono look. */
+[data-theme="dos"] .rounded-sm,
+[data-theme="dos"] .rounded-md,
+[data-theme="dos"] .rounded-lg,
+[data-theme="dos"] .rounded-full {
+  border-radius: 0;
+}
+[data-theme="dos"] .font-serif {
+  font-family:
+    "Geist Mono", var(--font-arabic), ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas,
+    monospace;
+}
+
+/* The reader's PDF pane needs a surface distinct from the card in dark
+   themes, so white pages read as paper on a desk. Light and sepia keep
+   the canvas itself (no extra paint, unchanged). */
+.dark .pdf-pane {
+  background: oklch(0.145 0.008 60);
+}
+[data-theme="dos"] .pdf-pane {
+  background: oklch(0.06 0 0);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -258,6 +336,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

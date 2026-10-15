@@ -20,6 +20,13 @@ const HISTORY_CAP: usize = 200;
 /// Upper bound on one import batch. An export never exceeds HISTORY_CAP,
 /// so this only rejects a hand-edited or corrupt file.
 const MAX_IMPORT_ENTRIES: usize = 5_000;
+/// Bounds on the two unbounded vectors of an entry. 200 entries stay in
+/// the file, so these also bound the whole file: a realistic entry is a
+/// few hundred bytes, and one entry can never exceed ~21 KiB.
+const MAX_AUTHORS: usize = 64;
+const MAX_AUTHORS_BYTES: usize = 16 * 1024;
+const MAX_CATEGORIES: usize = 16;
+const MAX_CATEGORIES_BYTES: usize = 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,6 +106,18 @@ fn validate_entry(entry: &ReadingHistoryEntry) -> Result<(), String> {
     }
     if entry.paper_id.len() > 128 || entry.title.len() > 512 || entry.pdf_url.len() > 2048 {
         return Err("History entry fields are too long".into());
+    }
+    // The vectors are attacker-influenced (one IPC call), and entry
+    // count alone does not bound them: a single entry with a huge
+    // authors array passed every other check and grew history.json
+    // without limit.
+    if entry.authors.len() > MAX_AUTHORS || entry.categories.len() > MAX_CATEGORIES {
+        return Err("History entry has too many authors or categories".into());
+    }
+    let authors_bytes: usize = entry.authors.iter().map(|a| a.len()).sum();
+    let categories_bytes: usize = entry.categories.iter().map(|c| c.len()).sum();
+    if authors_bytes > MAX_AUTHORS_BYTES || categories_bytes > MAX_CATEGORIES_BYTES {
+        return Err("History entry author or category data is too large".into());
     }
     Ok(())
 }
@@ -420,5 +439,30 @@ mod tests {
     fn validation_rejects_empty_paper_id() {
         let err = validate_entry(&sample_entry("", "2026-08-01T00:00:00Z")).expect_err("must fail");
         assert!(err.contains("paper id"), "got: {err}");
+    }
+
+    #[test]
+    fn validation_rejects_unbounded_author_and_category_vectors() {
+        // Entry count alone does not bound the file: one entry with a
+        // huge authors array passed every other check.
+        let many_authors = sample_entry("p1", "2026-08-01T00:00:00Z");
+        let mut entry = many_authors.clone();
+        entry.authors = (0..MAX_AUTHORS + 1)
+            .map(|i| format!("Author {i}"))
+            .collect();
+        assert!(validate_entry(&entry).is_err());
+
+        let mut entry = sample_entry("p1", "2026-08-01T00:00:00Z");
+        entry.authors = vec!["A".repeat(MAX_AUTHORS_BYTES + 1)];
+        assert!(validate_entry(&entry).is_err());
+
+        let mut entry = sample_entry("p1", "2026-08-01T00:00:00Z");
+        entry.categories = (0..MAX_CATEGORIES + 1)
+            .map(|i| format!("cs.X{i}"))
+            .collect();
+        assert!(validate_entry(&entry).is_err());
+
+        // A realistic entry still passes.
+        assert!(validate_entry(&sample_entry("p1", "2026-08-01T00:00:00Z")).is_ok());
     }
 }

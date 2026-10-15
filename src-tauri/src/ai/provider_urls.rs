@@ -25,7 +25,8 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -59,23 +60,61 @@ pub(crate) fn urls_path(app: Option<&tauri::AppHandle>) -> PathBuf {
     dir.join(URLS_FILE)
 }
 
-/// Reads the file. A missing, oversized or corrupt file is an empty map: the
-/// worst outcome is that a caller falls back to the URL it was given, which
-/// is the behaviour that predates this file.
+/// Reads the file. A missing file is an empty map (the pre-file behaviour
+/// for an install that predates bindings, or a provider mid-add).
+///
+/// A corrupt or oversized file is ALSO quarantined, not merely ignored:
+/// the next save rewrites the file with only the new binding, so silently
+/// treating it as empty would drop every other provider's binding with no
+/// trace. The quarantined copy keeps the evidence for recovery.
 fn read(app: Option<&tauri::AppHandle>) -> UrlsFile {
     let path = urls_path(app);
     let within_cap = fs::metadata(&path)
         .map(|m| m.len() <= MAX_FILE_BYTES)
         .unwrap_or(false);
     if !within_cap {
+        // No metadata means no file: nothing to quarantine. Otherwise
+        // the file exists but is oversized — move it aside.
+        if fs::metadata(&path).is_ok() {
+            quarantine(&path);
+        }
         return UrlsFile::default();
     }
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| serde_json::from_str::<UrlsFile>(&s).ok())
-        .unwrap_or_default()
+    match fs::read_to_string(&path) {
+        Ok(text) => match serde_json::from_str::<UrlsFile>(&text) {
+            Ok(file) => file,
+            Err(_) => {
+                quarantine(&path);
+                UrlsFile::default()
+            }
+        },
+        // Missing (or momentarily unreadable) file: the empty map.
+        Err(_) => UrlsFile::default(),
+    }
 }
 
+/// Moves an unparseable or oversized bindings file aside. The extension
+/// swap keeps it in the same folder (and on the same filesystem, so the
+/// rename cannot fail with a cross-device error).
+fn quarantine(path: &Path) {
+    let backup = path.with_extension("corrupt.json");
+    let _ = fs::rename(path, backup);
+}
+
+/// Serializes the read-modify-write of save/delete binding across
+/// overlapping commands (the webview can fire a key save and a provider
+/// delete at the same moment). Same rationale as `history_lock` in
+/// history.rs and `notes_lock` in notes.rs. The guarded functions are
+/// synchronous end to end, so a plain std Mutex cannot be held across an
+/// await.
+fn urls_lock() -> &'static Mutex<()> {
+    static URLS_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    URLS_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// Atomic write: temp file + rename, so a crash mid-write can never
+/// corrupt the only copy of the bindings (same pattern as notes.rs and
+/// history.rs).
 fn write(app: Option<&tauri::AppHandle>, file: &UrlsFile) -> Result<(), String> {
     let path = urls_path(app);
     if let Some(parent) = path.parent() {
@@ -83,7 +122,9 @@ fn write(app: Option<&tauri::AppHandle>, file: &UrlsFile) -> Result<(), String> 
     }
     let json = serde_json::to_string_pretty(file)
         .map_err(|e| format!("Could not serialise provider URLs: {e}"))?;
-    fs::write(&path, json).map_err(|e| format!("Could not write provider URLs: {e}"))
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, json).map_err(|e| format!("Could not write provider URLs: {e}"))?;
+    fs::rename(&tmp, &path).map_err(|e| format!("Could not save provider URLs: {e}"))
 }
 
 /// Binds `provider_id` to `url`, which must already have passed
@@ -99,6 +140,7 @@ pub(crate) fn save_binding(
     if url.len() > MAX_URL_LEN {
         return Err("Base URL is too long".into());
     }
+    let _guard = urls_lock().lock().unwrap_or_else(|p| p.into_inner());
     let mut file = read(app);
     file.version = 1;
     file.urls.insert(provider_id.to_string(), url.to_string());
@@ -113,6 +155,7 @@ pub(crate) fn bound_url(app: Option<&tauri::AppHandle>, provider_id: &str) -> Op
 /// Drops the binding for a provider, so removing a provider also removes
 /// its remembered host.
 pub(crate) fn delete_binding(app: Option<&tauri::AppHandle>, provider_id: &str) {
+    let _guard = urls_lock().lock().unwrap_or_else(|p| p.into_inner());
     let mut file = read(app);
     if file.urls.remove(provider_id).is_none() {
         return; // nothing changed; do not rewrite the file
@@ -187,9 +230,23 @@ mod tests {
         let (_guard, dir) = locked_dir("corrupt");
         fs::write(dir.join(URLS_FILE), "{not json").unwrap();
         assert_eq!(bound_url(None, "openai"), None);
+        // The unparseable file is quarantined, not silently treated as
+        // an empty map: the next save would otherwise drop every other
+        // provider's binding with no trace.
+        assert!(dir.join("provider-urls.corrupt.json").exists());
+        assert!(!dir.join(URLS_FILE).exists());
         // A later save must recover rather than fail forever.
         assert!(save_binding(None, "openai", "https://api.openai.com/v1/chat/completions").is_ok());
         assert!(bound_url(None, "openai").is_some());
+    }
+
+    #[test]
+    fn an_oversized_file_is_quarantined_rather_than_read() {
+        let (_guard, dir) = locked_dir("toobig");
+        fs::write(dir.join(URLS_FILE), "x".repeat(MAX_FILE_BYTES as usize + 1)).unwrap();
+        assert_eq!(bound_url(None, "openai"), None);
+        assert!(dir.join("provider-urls.corrupt.json").exists());
+        assert!(!dir.join(URLS_FILE).exists());
     }
 
     #[test]
@@ -201,12 +258,5 @@ mod tests {
             bound_url(None, "ollama").as_deref(),
             Some("https://ollama.example/v1/chat/completions")
         );
-    }
-
-    #[test]
-    fn an_oversized_file_is_ignored_rather_than_read() {
-        let (_guard, dir) = locked_dir("toobig");
-        fs::write(dir.join(URLS_FILE), "x".repeat(MAX_FILE_BYTES as usize + 1)).unwrap();
-        assert_eq!(bound_url(None, "openai"), None);
     }
 }

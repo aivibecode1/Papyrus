@@ -1,4 +1,12 @@
-import { AlertCircle, BookOpenText, Bookmark, Clock, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Bookmark,
+  BookmarkCheck,
+  BookOpenText,
+  Clock,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -50,11 +58,11 @@ function HistoryRow({ entry }: { entry: ReadingHistoryEntry }) {
           variant="ghost"
           size="icon-sm"
           onClick={() => toggleFavorite(paperFromEntry(entry))}
-          disabled={isFavorite}
-          aria-label={t("history.save")}
-          title={t("history.save")}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? t("history.saved") : t("history.save")}
+          title={isFavorite ? t("history.saved") : t("history.save")}
         >
-          <Bookmark className="size-3.5" />
+          {isFavorite ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}
         </Button>
         <Button
           variant="ghost"

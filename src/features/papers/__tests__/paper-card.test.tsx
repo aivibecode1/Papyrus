@@ -9,7 +9,6 @@ import type { Paper, ProviderConfig } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   toggle: vi.fn(),
-  isFavorite: vi.fn(() => false),
   openReader: vi.fn(),
   setView: vi.fn(),
   toggleExpand: vi.fn(),
@@ -18,11 +17,16 @@ const mocks = vi.hoisted(() => ({
   providers: [] as ProviderConfig[],
   activeProviderId: null as string | null,
   citationCount: undefined as number | undefined,
+  favorited: false,
 }));
 
 vi.mock("@/stores/favorites", () => ({
   useFavoritesStore: (sel: (s: unknown) => unknown) =>
-    sel({ isFavorite: mocks.isFavorite, toggle: mocks.toggle }),
+    sel({
+      byId: mocks.favorited ? { "2607.00001v1": {} } : {},
+      isFavorite: (id: string) => (id === "2607.00001v1" ? mocks.favorited : false),
+      toggle: mocks.toggle,
+    }),
 }));
 vi.mock("@/stores/reader", () => ({
   useReaderStore: (sel: (s: unknown) => unknown) => sel({ open: mocks.openReader }),
@@ -73,10 +77,10 @@ const scholarPaper: Paper = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.isFavorite.mockReturnValue(false);
   mocks.isExpanded.mockReturnValue(false);
   mocks.providers = [];
   mocks.citationCount = undefined;
+  mocks.favorited = false;
 });
 
 describe("paper card", () => {
@@ -108,6 +112,18 @@ describe("paper card", () => {
   it("labels the arXiv source with a direction-safe chip", () => {
     render(<PaperCard paper={arxivPaper} />);
     expect(screen.getByText("arXiv")).toHaveAttribute("dir", "ltr");
+  });
+
+  it("reads the saved state from the favorites map, not a stable function", () => {
+    // Regression: the card selected `isFavorite` (a stable function
+    // reference), so toggling a favorite never re-rendered the card and
+    // the button kept its old label. The selector must read the entry.
+    mocks.favorited = true;
+    render(<PaperCard paper={arxivPaper} />);
+    const save = screen.getByRole("button", { name: "Saved" });
+    expect(save).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(save);
+    expect(mocks.toggle).toHaveBeenCalledWith(arxivPaper);
   });
 
   it("labels the Scholar source and flags a TLDR-only summary", () => {

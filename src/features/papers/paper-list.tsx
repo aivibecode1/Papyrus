@@ -13,8 +13,18 @@ import { PaperListContent } from "@/features/papers/paper-list-content";
 
 export function PaperList() {
   const { t } = useTranslation();
-  const { papers, loading, error, refresh, lastUpdated, fallbackNote, clearFallbackNote, query } =
-    usePapersStore();
+  // Individual selectors (not the destructured whole store): a
+  // whole-store subscription re-rendered the entire feed — toolbar,
+  // strips and every mounted card — on any papers-store change,
+  // including the periodic citation updates.
+  const papers = usePapersStore((s) => s.papers);
+  const loading = usePapersStore((s) => s.loading);
+  const error = usePapersStore((s) => s.error);
+  const refresh = usePapersStore((s) => s.refresh);
+  const lastUpdated = usePapersStore((s) => s.lastUpdated);
+  const fallbackNote = usePapersStore((s) => s.fallbackNote);
+  const clearFallbackNote = usePapersStore((s) => s.clearFallbackNote);
+  const query = usePapersStore((s) => s.query);
   const category = usePapersStore((s) => s.category);
   const source = usePapersStore((s) => s.source);
   const date = usePapersStore((s) => s.date);

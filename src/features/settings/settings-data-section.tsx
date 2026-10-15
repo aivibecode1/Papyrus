@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { Button } from "@/components/ui/button";
 import { exportSavedData, importSavedData } from "@/lib/export";
+import { redactSecrets, truncateError } from "@/lib/provider-errors";
 import { useHistoryStore } from "@/stores/history";
 
 /**
@@ -81,7 +82,13 @@ export function DataSection() {
       const summary = await importSavedData(content);
       setImportMessage(t("settings.importedCount", { ...summary }));
     } catch (err) {
-      setImportMessage(t("settings.importFailed", { error: String(err) }));
+      // Sanitize the interpolated error the same way the provider cards
+      // do: a raw Rust/IO message is an unbounded technical string (and
+      // could echo file-format internals) shown to a non-technical user
+      // in either UI language.
+      setImportMessage(
+        t("settings.importFailed", { error: truncateError(redactSecrets(String(err))) }),
+      );
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -113,7 +120,9 @@ export function DataSection() {
     } catch (err) {
       setClearing(false);
       setConfirmClear(false);
-      setClearMessage(t("settings.clearDataFailed", { error: String(err) }));
+      setClearMessage(
+        t("settings.clearDataFailed", { error: truncateError(redactSecrets(String(err))) }),
+      );
     }
   };
 
@@ -140,7 +149,9 @@ export function DataSection() {
       setExportMessage(t("settings.exportedTo", { path }));
     } catch (err) {
       setExportMessage(
-        t("settings.exportFailed", { error: err instanceof Error ? err.message : String(err) }),
+        t("settings.exportFailed", {
+          error: truncateError(redactSecrets(err instanceof Error ? err.message : String(err))),
+        }),
       );
     } finally {
       setExporting(false);

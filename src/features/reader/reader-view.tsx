@@ -113,6 +113,7 @@ export function ReaderView() {
       className="reader-ai-panel flex h-dvh flex-col focus:outline-none"
       data-reader-scale={scale}
       data-view-root
+      id="main-content"
       tabIndex={-1}
     >
       {/* header */}
@@ -151,7 +152,7 @@ export function ReaderView() {
           {/* PDF viewer: grows with the row on narrow windows, exact
               share of the split on desktop (inline-start side). */}
           <div
-            className="min-h-0 dark:bg-[oklch(0.145_0.008_60)]"
+            className="pdf-pane min-h-0"
             style={
               isRow
                 ? {

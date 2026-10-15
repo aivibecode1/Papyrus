@@ -5,7 +5,7 @@ import type { Paper, PaperNote, ReadingHistoryEntry } from "@/lib/types";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useHistoryStore } from "@/stores/history";
 import { useNotesStore } from "@/stores/notes";
-import { CHAT_STORAGE_KEY } from "@/stores/reader-persist";
+import { CHAT_STORAGE_KEY, importChatTurns } from "@/stores/reader-persist";
 
 export interface ExportChatTurn {
   role: string;
@@ -27,14 +27,19 @@ export interface ExportPayload {
 
 /** Maps a chat message to its exportable { role, content } shape; returns
  * null for anything malformed. Internal fields (ids, status) never leave
- * the app — they are session-local implementation details. */
+ * the app — they are session-local implementation details.
+ *
+ * The persisted field is `text` (ChatMessage in reader-persist.ts);
+ * reading only `content` here dropped every real turn, so exports
+ * always shipped an empty chat section. `content` is still accepted so
+ * a re-exported import file round-trips. */
 function toChatTurn(value: unknown): ExportChatTurn | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
-  if (typeof v.role === "string" && typeof v.content === "string") {
-    return { role: v.role, content: v.content };
-  }
-  return null;
+  if (typeof v.role !== "string") return null;
+  const content = typeof v.text === "string" ? v.text : v.content;
+  if (typeof content !== "string") return null;
+  return { role: v.role, content };
 }
 
 /** Collects the user's saved data (favorites + chat transcripts + notes
@@ -242,21 +247,13 @@ export async function importSavedData(fileContent: string): Promise<ImportSummar
   if (!favorites.loaded) favorites.load();
   useFavoritesStore.getState().importPapers(payload.favorites);
 
-  // Append chat transcripts per paper, skipping malformed turns.
-  try {
-    const raw = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? "{}") as Record<
-      string,
-      unknown
-    >;
-    for (const [paperId, turns] of Object.entries(payload.chat)) {
-      if (!Array.isArray(turns) || turns.length === 0) continue;
-      const existing = Array.isArray(raw[paperId]) ? (raw[paperId] as unknown[]) : [];
-      const merged = [...existing, ...turns];
-      raw[paperId] = merged.slice(-30);
-    }
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(raw));
-  } catch {
-    // Storage full or unavailable: favorites still import in memory.
+  // Append chat transcripts per paper. The export shape is
+  // {role, content}; importChatTurns maps it into the persisted
+  // ChatMessage shape with fresh ids (writing the export shape directly
+  // left every imported turn invisible: loadChat filters on `text`).
+  for (const [paperId, turns] of Object.entries(payload.chat)) {
+    if (!Array.isArray(turns) || turns.length === 0) continue;
+    importChatTurns(paperId, turns as ExportChatTurn[]);
   }
 
   return summary;

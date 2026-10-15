@@ -10,7 +10,13 @@ import { createStreamBuffer } from "@/lib/stream";
 import type { Paper, ProviderConfig } from "@/lib/types";
 import { useHistoryStore } from "@/stores/history";
 import type { ChatMessage, SectionEntry, StreamStatus } from "./reader-persist";
-import { loadChat, loadWalkthrough, persistChat, persistWalkthrough } from "./reader-persist";
+import {
+  highestChatId,
+  loadChat,
+  loadWalkthrough,
+  persistChat,
+  persistWalkthrough,
+} from "./reader-persist";
 
 export type { ChatMessage, SectionEntry, StreamStatus } from "./reader-persist";
 
@@ -61,30 +67,6 @@ interface ReaderState {
 }
 
 let messageId = 1;
-
-/**
- * The largest numeric id in a chat, or 0 when it holds none.
- *
- * Chat ids come from a module-scope counter but are persisted with the
- * transcript, so a restored chat carries ids the current session has never
- * seen. Anything that allocates a new id has to start past the highest one
- * already in the chat, or `findIndex(m => m.id === ...)` will match an
- * older message and write into it. Non-numeric or missing ids are ignored
- * rather than trusted: `NaN` would poison the running maximum.
- */
-function highestChatId(chat: { id?: number }[]): number {
-  let highest = 0;
-  for (const message of chat) {
-    if (
-      typeof message.id === "number" &&
-      Number.isSafeInteger(message.id) &&
-      message.id > highest
-    ) {
-      highest = message.id;
-    }
-  }
-  return highest;
-}
 
 export const useReaderStore = create<ReaderState>((set, get) => {
   // Generation counters: bumping one invalidates in-flight chunks from
@@ -273,11 +255,22 @@ export const useReaderStore = create<ReaderState>((set, get) => {
     },
 
     continueWalkthrough: async (provider, language) => {
+      // The walkthrough is section-driven, so it needs the whole-paper
+      // text: extract it lazily on first use (open() only downloads the
+      // PDF bytes and restores the *entries*, not the sections — a
+      // restored walkthrough has sectionIndex past an empty sections
+      // array, which used to skip straight to the synthesis).
+      const ok = await get().ensureExtracted();
+      if (!ok) return;
       const { paper, sections, sectionIndex, synthesis } = get();
       if (!paper) return;
+      // A restored walkthrough can carry a sectionIndex past the
+      // current section count (the paper or the extractor changed since
+      // it was saved); clamp so the next branch means what it says.
+      if (sectionIndex > sections.length) set({ sectionIndex: sections.length });
 
-      if (sectionIndex < sections.length) {
-        await get().explainSection(sectionIndex, provider, language, false);
+      if (get().sectionIndex < sections.length) {
+        await get().explainSection(get().sectionIndex, provider, language, false);
         return;
       }
 
@@ -413,8 +406,15 @@ export const useReaderStore = create<ReaderState>((set, get) => {
      * user redo a stopped (or finished) section instead of only moving on.
      */
     regenerateSection: async (provider, language) => {
+      // Same lazy-extraction guard as startWalkthrough: a restored
+      // walkthrough has no sections until the first extraction, and
+      // without this the bounds check below silently no-ops.
+      const ok = await get().ensureExtracted();
+      if (!ok) return;
       const { sections, sectionIndex, sectionEntries } = get();
-      const i = sectionIndex - 1;
+      // Clamp a stale restored index (paper or extractor changed since
+      // the walkthrough was saved) to the real last section.
+      const i = Math.min(sectionIndex, sections.length) - 1;
       if (i < 0 || i >= sections.length) return;
       const entry = sectionEntries[i];
       if (!entry || (entry.status !== "done" && entry.status !== "stopped")) return;

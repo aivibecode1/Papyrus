@@ -22,6 +22,64 @@ const CHAT_PERSIST_LIMIT = 30;
  * users; the walkthrough cap is 5 for comparison. */
 const CHAT_PAPER_LIMIT = 40;
 
+/** The largest numeric id in a persisted chat, or 0 when it holds none.
+ *
+ * Chat ids come from a module-scope counter but are persisted with the
+ * transcript, so a restored chat carries ids the current session has never
+ * seen. Anything that allocates a new id has to start past the highest one
+ * already in the chat, or `findIndex(m => m.id === ...)` will match an
+ * older message and write into it. Non-numeric or missing ids are ignored
+ * rather than trusted: `NaN` would poison the running maximum. */
+export function highestChatId(list: unknown): number {
+  if (!Array.isArray(list)) return 0;
+  let highest = 0;
+  for (const message of list) {
+    if (typeof message !== "object" || message === null) continue;
+    const id = (message as { id?: unknown }).id;
+    if (typeof id === "number" && Number.isSafeInteger(id) && id > highest) {
+      highest = id;
+    }
+  }
+  return highest;
+}
+
+/** Appends imported {role, content} turns (the export shape) to a paper's
+ * transcript in the persisted ChatMessage shape, with fresh ids starting
+ * past every id already in the chat. The export format carries no ids, and
+ * reusing low ids would collide with restored messages (see ask() in the
+ * reader store). Best-effort, like persistChat. */
+export function importChatTurns(paperId: string, turns: { role: string; content: string }[]): void {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? "{}") as Record<
+      string,
+      unknown
+    >;
+    const existing = Array.isArray(raw[paperId]) ? (raw[paperId] as ChatMessage[]) : [];
+    let nextId = highestChatId(existing) + 1;
+    const imported: ChatMessage[] = turns.map((turn) => ({
+      id: nextId++,
+      role: turn.role === "assistant" ? "assistant" : "user",
+      text: turn.content,
+      status: "done",
+      error: null,
+      selection: null,
+    }));
+    // Touch the paper (delete + re-set) so JSON insertion order doubles as
+    // LRU order, mirroring persistChat.
+    if (raw[paperId] !== undefined) delete raw[paperId];
+    raw[paperId] = [...existing, ...imported].slice(-CHAT_PERSIST_LIMIT);
+    const keys = Object.keys(raw);
+    if (keys.length > CHAT_PAPER_LIMIT) {
+      for (const stale of keys.slice(0, keys.length - CHAT_PAPER_LIMIT)) {
+        delete raw[stale];
+      }
+    }
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(raw));
+  } catch {
+    // Storage full or unavailable: chat history is best-effort.
+  }
+}
+
 export function loadChat(paperId: string): ChatMessage[] {
   try {
     const raw = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? "{}") as Record<

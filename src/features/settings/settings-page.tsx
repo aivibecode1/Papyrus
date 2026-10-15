@@ -95,6 +95,7 @@ export function SettingsPage() {
   return (
     <div
       data-view-root
+      id="main-content"
       tabIndex={-1}
       className="mx-auto min-h-0 w-full max-w-3xl flex-1 overflow-y-auto p-6 focus:outline-none"
     >
@@ -134,7 +135,7 @@ export function SettingsPage() {
                     {t("settings.providersDiscard")}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(false)}>
-                    {t("common.cancel")}
+                    {t("settings.cancel")}
                   </Button>
                 </div>
               ) : (
@@ -170,6 +171,7 @@ export function SettingsPage() {
               <SelectItem value="light">{t("settings.themeLight")}</SelectItem>
               <SelectItem value="sepia">{t("settings.themeSepia")}</SelectItem>
               <SelectItem value="dark">{t("settings.themeDark")}</SelectItem>
+              <SelectItem value="dos">{t("settings.themeDos")}</SelectItem>
             </SelectContent>
           </Select>
         </div>

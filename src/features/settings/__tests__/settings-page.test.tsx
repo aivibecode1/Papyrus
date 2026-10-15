@@ -242,6 +242,18 @@ describe("settings page", () => {
     expect(mocks.setArabicFontTo).toHaveBeenCalledWith("amiri");
   });
 
+  it("offers all four themes in the appearance select, dos included", () => {
+    render(<SettingsPage />);
+    const trigger = screen.getByRole("combobox", { name: "Appearance" });
+    fireEvent.click(trigger);
+    // Every theme in the cycle must be selectable here.
+    for (const name of ["Light", "Sepia", "Dark", "DOS"]) {
+      expect(screen.getByRole("option", { name })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole("option", { name: "DOS" }));
+    expect(mocks.setThemeTo).toHaveBeenCalledWith("dos");
+  });
+
   it("deletes a provider that has no stored key", async () => {
     // Regression: a keyless provider (Ollama, or any provider whose key
     // was cleared) made the backend reject the delete with "No matching

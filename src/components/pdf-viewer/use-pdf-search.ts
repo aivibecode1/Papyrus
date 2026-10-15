@@ -15,22 +15,39 @@ export function usePdfSearch(getLayers: () => (HTMLDivElement | null)[]) {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const applyHighlights = useCallback((layer: HTMLElement, query: string) => {
-    layer.querySelectorAll("mark").forEach((m) => {
-      const span = m.parentElement;
-      if (span) {
-        span.innerHTML = escapeHtml(span.textContent ?? "");
-      }
-    });
-    if (!query.trim()) return;
+  /** Rebuilds the shared mark list from the DOM and refreshes the count.
+   * The viewer calls applyHighlights after *every* text-layer render —
+   * each page that scrolls into the virtualized window, and every zoom
+   * or canvas generation — so appending to the array kept marks from
+   * unmounted pages (detached nodes that scrollIntoView silently
+   * ignores) and never updated the count for newly rendered pages. */
+  const rebuildMarks = useCallback(() => {
     const marks: HTMLElement[] = [];
-    layer.querySelectorAll<HTMLSpanElement>("span").forEach((span) => {
-      if (highlightSpan(span, query.trim()) > 0) {
-        span.querySelectorAll("mark").forEach((m) => marks.push(m as HTMLElement));
+    for (const layer of getLayers()) {
+      if (!layer) continue;
+      layer.querySelectorAll("mark").forEach((m) => marks.push(m as HTMLElement));
+    }
+    marksRef.current = marks;
+    setMatchCount(marks.length);
+  }, [getLayers]);
+
+  const applyHighlights = useCallback(
+    (layer: HTMLElement, query: string) => {
+      layer.querySelectorAll("mark").forEach((m) => {
+        const span = m.parentElement;
+        if (span) {
+          span.innerHTML = escapeHtml(span.textContent ?? "");
+        }
+      });
+      if (query.trim()) {
+        layer.querySelectorAll<HTMLSpanElement>("span").forEach((span) => {
+          highlightSpan(span, query.trim());
+        });
       }
-    });
-    marksRef.current = [...marksRef.current, ...marks];
-  }, []);
+      rebuildMarks();
+    },
+    [rebuildMarks],
+  );
 
   const runSearch = useCallback(
     (query: string) => {

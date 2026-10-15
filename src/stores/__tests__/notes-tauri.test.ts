@@ -81,6 +81,25 @@ describe("notes store on the desktop path", () => {
     expect(useNotesStore.getState().notes[0].body).toBe("saved");
   });
 
+  it("rolls back a delete the backend rejected, tombstone included", async () => {
+    // Regression: remove() filtered the note optimistically and awaited
+    // delete_note with no try/catch. A failed delete left the note gone
+    // from the UI while it still existed on disk, so the next load
+    // resurrected it and the user could not tell what happened. The
+    // tombstone must be dropped too, or the merge would keep hiding the
+    // note that is actually still on disk.
+    const original = makeNote({ id: "n1", body: "keep me" });
+    // loading: true puts a remove inside the plan-046 race window, where
+    // the tombstone path also runs.
+    useNotesStore.setState({ notes: [original], loaded: true, loading: true });
+    invoke.mockRejectedValueOnce(new Error("disk full"));
+
+    await expect(useNotesStore.getState().remove("n1")).rejects.toThrow("disk full");
+
+    expect(useNotesStore.getState().notes).toEqual([original]);
+    expect(useNotesStore.getState().pendingDeletes).toEqual([]);
+  });
+
   it("rolls back an import the backend rejected", async () => {
     const original = makeNote({ id: "n1", body: "mine", updatedAt: "2026-08-09T00:00:00Z" });
     useNotesStore.setState({ notes: [original], loaded: true });

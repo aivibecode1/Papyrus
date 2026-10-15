@@ -34,8 +34,9 @@
 8. **Switch language and theme.** Use the toggles in the top bar: the
    language group flips the whole interface to Arabic with full RTL (and
    explanations are then written in Arabic), and the theme button cycles
-   Light (soft, low contrast), Sepia (warm paper) and Dark. The same
-   choice lives in Settings under Appearance. Your choices are remembered.
+   Light (soft, low contrast), Sepia (warm paper), Dark and DOS (classic
+   terminal: black canvas, white monochrome text). The same choice lives
+   in Settings under Appearance. Your choices are remembered.
 
 ## Paper coverage and history
 

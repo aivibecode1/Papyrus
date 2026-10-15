@@ -19,6 +19,89 @@ Rules:
 
 ---
 
+## v1.1.13 - 2026-10-15
+
+Status: in progress; installers not yet built.
+Built from: `main` (unreleased)
+Quality gates: pending — run `pnpm run typecheck`, `pnpm run lint`,
+`pnpm run format:check`, `pnpm run test`, `pnpm run test:dev` and
+`cargo test` before tagging.
+
+- Added: a DOS theme, a fourth selectable theme alongside Light, Sepia
+  and Dark. Nearly pure black canvas, bright white monochrome text,
+  every surface achromatic; primary and accent are inverse video
+  (white slab, black text), chrome is square-cornered and set in the
+  bundled Geist Mono, and selection is inverse video — the classic
+  terminal look, applied consistently to navigation, menus, dialogs,
+  inputs, buttons, borders, focus rings, notifications, code blocks
+  and the reader. It cycles from the top bar and sits in the
+  Appearance select in Settings, persisted and pre-hydrated exactly
+  like the other themes; muted metadata measures 8.3:1 on the canvas
+  and 7.9:1 on cards. Existing themes are unchanged.
+- Fixed: chat transcripts were never exported (the mapper read a
+  field the persisted message does not have, so every backup shipped
+  an empty chat section) and imported chats were invisible (the import
+  wrote the export shape into storage, which the reader's loader
+  filters out). Both directions now map through the persisted shape,
+  with fresh ids past the highest one already in the chat.
+- Fixed: on a restored walkthrough, Continue jumped straight to a
+  final synthesis streamed from empty paper text — skipping every
+  section that was never explained — and Regenerate silently did
+  nothing, because a reopened paper restores the finished sections but
+  not the section list (extraction is lazy). Both extract first, and a
+  stale restored index is clamped to the real section count.
+- Fixed: deleting a note whose write failed dropped it from the
+  screen with no rollback and a swallowed rejection, so the note was
+  gone from the UI while it still existed on disk. It rolls back
+  (tombstone included) and re-throws, exactly like the save path.
+- Fixed: a favorited paper's star kept its old state until something
+  else re-rendered the card (the card subscribed to the favorites
+  store's `isFavorite` function, whose identity never changes). The
+  card selects the entry now; the history list's favorite button also
+  stops being disabled once saved and reports its state with
+  `aria-pressed`.
+- Fixed: find-in-PDF accumulated stale matches as pages scrolled —
+  the highlighter appended to the shared mark list, which the viewer
+  re-applies after every page render, so the list kept marks from
+  unmounted pages while the count never updated for new ones. The
+  list is rebuilt from the DOM and the count refreshed on every apply.
+- Fixed: destructive buttons and badges failed text contrast in every
+  theme: `text-destructive-foreground` emitted no CSS rule at all,
+  because the palette token was never mapped in `@theme inline`. The
+  token is mapped, and a new inventory test fails on any palette token
+  that is not exposed to Tailwind.
+- Fixed: two surfaces showed raw translation keys (`reader.passageSelected`
+  and a `common.cancel` that does not exist), and the reader and
+  settings views had no `main-content` anchor, so the skip link was
+  inert exactly where keyboard users land. Keys added in both
+  languages, broken key corrected, anchors in place.
+- Fixed: a failed import/export/clear interpolated the raw Rust or
+  I/O message into the UI text, unbounded and in both languages. It is
+  redacted and truncated like the provider errors now.
+- Security: the provider-URL bindings (which host each API key may be
+  sent to) were written non-atomically, with no serialization around
+  the read-modify-write, and a corrupt file was silently treated as
+  empty — which made every bound provider fall back to the
+  caller-supplied host. Writes are temp-file + rename like every other
+  persistence module, the cycle is serialized, and a corrupt or
+  oversized file is quarantined so the next save cannot silently drop
+  the other providers' bindings.
+- Security: one reading-history entry could grow history.json without
+  limit — entry count and field lengths were capped, but the author
+  and category vectors were not. Both are bounded by count and total
+  bytes now.
+- Fixed: the reader's PDF pane background was a hardcoded dark-mode
+  color embedded in a class attribute, so it could not follow any
+  theme. It is now a token-driven surface: identical to before in
+  light, sepia and dark, and a deeper black in DOS.
+- Added: tests for the four-theme cycle and palette completeness, the
+  chat export/import round-trip, the restored-walkthrough continue and
+  regenerate paths, the note-delete rollback, the favorites-map
+  subscription, the find-marks rebuild, and the token-exposure
+  inventory. Rust: 167 tests, frontend: 475 tests.
+
+---
+
 ## v1.1.12 - 2026-09-27
 
 Status: in progress; installers not yet built.

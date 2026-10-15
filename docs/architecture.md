@@ -104,7 +104,7 @@ Paper, explanation, and key-storage flows:
 ## Design tokens
 
 Theme colors, fonts, radii and density tokens live in `src/index.css`
-(light / sepia / dark palettes via `data-theme` + `.dark`). Do not use
+(light / sepia / dark / dos palettes via `data-theme` + `.dark`). Do not use
 raw color utilities for theme surfaces; use the tokens. Density tokens:
 
 ```css
