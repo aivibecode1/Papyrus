@@ -130,10 +130,10 @@ describe("PdfViewer", () => {
     await waitFor(() => expect(screen.getByText("1 / 3")).toBeInTheDocument());
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
-    await waitFor(() => expect(screen.getByText("2 / 3")).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText("2 / 3")).toBeInTheDocument());
 
     fireEvent.keyDown(window, { key: "ArrowLeft" });
-    await waitFor(() => expect(screen.getByText("1 / 3")).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText("1 / 3")).toBeInTheDocument());
   });
 
   it("ignores arrow keys while typing in an input", async () => {
