@@ -109,6 +109,13 @@ Quality gates: pending — run `pnpm run typecheck`, `pnpm run lint`,
   only through the shadcn CLI's fast-glob — is ignored via
   pnpm.auditConfig.ignoreGhsas and documented in ci.yml. The gate
   exits 0 again.
+- Fixed: `cargo audit` failed CI the day the release was pushed:
+  RUSTSEC-2026-0346/0347/0348 were published 2026-10-14 against the
+  pinned rustls 0.23.45 (two crypto-failures and a denial-of-service,
+  all fixed in 0.23.46). rustls is bumped to 0.23.46 in
+  src-tauri/Cargo.lock — a lockfile-only change, same as the earlier
+  h2 and rustls bumps — and the Rust tests, clippy and rustfmt gates
+  re-run green.
 
 ---
 
